@@ -9,3 +9,25 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+library(rvest)
+url <- "https://www.baseball-reference.com/awards/hof_2025.shtml"
+html <- read_html(url)
+tables <- html_table(html)
+```
+
+```{r}
+data <- tables[[1]]
+actual_col_names <- data[1, ]
+colnames(data) <- actual_col_names
+data <- data[-1, ]
+head(data, 3)
+```
+
+```{r}
+readr::parse_number(c("34%", "10th", "1.0"))
+x <- c("David Ortiz", "X-Barry Bonds", "X-Roger Clemens")
+gsub("X-", "Oh no! ", x)
+gsub("X-", "", x)
+```
+

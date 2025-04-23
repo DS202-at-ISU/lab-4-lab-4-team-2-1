@@ -1,0 +1,78 @@
+---
+title: "progress-report-valse"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rvest)
+library(readr)
+library(dplyr)
+library(Lahman)
+
+# Step 1: Scrape the HTML table
+url <- "https://www.baseball-reference.com/awards/hof_2025.shtml"
+html <- read_html(url)
+tables <- html_table(html, fill = TRUE)
+
+# Step 2: Grab the raw table and fix duplicate column names
+data_raw <- tables[[1]]
+
+# Step 3: Use first row as header, ensure unique column names
+actual_col_names <- make.names(data_raw[1, ], unique = TRUE)
+colnames(data_raw) <- actual_col_names
+data_clean <- data_raw[-1, ]
+
+# Step 4: Tidy and transform the data
+data_clean <- data_clean %>%
+  mutate(
+    Name = gsub("\\*", "", Name),
+    Votes = as.numeric(Votes),
+    Percent = as.numeric(gsub("%", "", `X.vote`)),
+    inducted = ifelse(!is.na(Percent) & Percent >= 75, "Y", "N"),
+    yearID = 2025,
+    votedBy = "BBWAA",
+    category = "Player"
+  ) %>%
+  mutate(
+    ballots = round(Votes / (Percent / 100)),
+    needed = ceiling(0.75 * ballots)
+  )
+
+table(data_clean$inducted)
+
+
+# Step 5: Match to Lahman::People using player names
+people <- Lahman::People %>%
+  mutate(fullName = paste(nameFirst, nameLast))
+
+hof_2025 <- data_clean %>%
+  left_join(people, by = c("Name" = "fullName"))
+
+# Step 6: Prepare the final data in HallOfFame format
+hof_2025_final <- hof_2025 %>%
+  transmute(
+    playerID = playerID,
+    yearID = 2025,
+    votedBy = votedBy,
+    ballots = ballots,
+    needed = needed,
+    votes = Votes,
+    inducted = inducted,
+    category = category,
+    needed_note = NA_character_
+  )
+
+# Step 7: Combine with original Lahman HallOfFame data
+hall_updated <- bind_rows(HallOfFame, hof_2025_final)
+
+
+
+# Step 8: Export to CSV
+write_csv(hall_updated, "HallOfFame_updated_with_2025.csv")
+
+```
+
